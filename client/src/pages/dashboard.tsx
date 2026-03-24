@@ -8,6 +8,7 @@ import FatigueChart from "@/components/fatigue-chart";
 import DetectionEvents from "@/components/detection-events";
 import SystemHealth from "@/components/system-health";
 import AlertNotification from "@/components/alert-notification";
+import LiveLocation from "@/components/live-location";
 import { useWebSocket } from "@/hooks/use-websocket";
 
 export default function Dashboard() {
@@ -84,6 +85,11 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
           <FatigueChart />
           <DetectionEvents />
+        </div>
+
+        {/* Live Location Tracking */}
+        <div className="mt-8">
+          <LiveLocation />
         </div>
 
         {/* System Health */}
