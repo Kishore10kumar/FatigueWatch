@@ -229,50 +229,12 @@ export class FaceDetectionEngine {
     }
   }
 
-  private drawFaceMesh(landmarks: any[]): void {
+  private drawFaceMesh(_landmarks: any[]): void {
     if (!this.ctx || !this.canvas) return;
-
-    // Set canvas size to match video
+    // Resize canvas to match video — drawing is intentionally suppressed.
+    // All EAR/MAR/landmark visuals are hidden; detection math runs in analyzeFacialFeatures.
     this.canvas.width = this.canvas.offsetWidth;
     this.canvas.height = this.canvas.offsetHeight;
-
-    // Define eye landmark indices manually (MediaPipe Face Mesh 468 landmarks)
-    const leftEyeLandmarks = [33, 7, 163, 144, 145, 153, 154, 155, 133, 173, 157, 158, 159, 160, 161, 246];
-    const rightEyeLandmarks = [362, 382, 381, 380, 374, 373, 390, 249, 263, 466, 388, 387, 386, 385, 384, 398];
-    const mouthLandmarks = [61, 84, 17, 314, 405, 320, 307, 375, 321, 308, 324, 318];
-    
-    // Draw eye regions
-    this.ctx.strokeStyle = '#FF6B6B';
-    this.ctx.lineWidth = 2;
-    this.drawLandmarkSet(landmarks, leftEyeLandmarks);
-    this.drawLandmarkSet(landmarks, rightEyeLandmarks);
-    
-    // Draw mouth region
-    this.ctx.strokeStyle = '#4ECDC4';
-    this.ctx.lineWidth = 2;
-    this.drawLandmarkSet(landmarks, mouthLandmarks);
-    
-    // Draw key detection points
-    this.ctx.fillStyle = '#FFE66D';
-    const keyPoints = [
-      // Eye corners and centers
-      33, 133, 362, 263, // Eye corners
-      159, 145, 374, 386, // Eye centers
-      // Mouth corners and center
-      61, 291, 13, 14, 15, // Mouth key points
-      // Nose and face center
-      1, 2, 5, 4, 6, 19, 20 // Nose bridge and tip
-    ];
-    
-    keyPoints.forEach(pointIndex => {
-      if (landmarks[pointIndex]) {
-        const x = landmarks[pointIndex].x * this.canvas!.width;
-        const y = landmarks[pointIndex].y * this.canvas!.height;
-        this.ctx!.beginPath();
-        this.ctx!.arc(x, y, 3, 0, 2 * Math.PI);
-        this.ctx!.fill();
-      }
-    });
   }
 
   private drawLandmarkSet(landmarks: any[], landmarkIndices: number[]): void {
