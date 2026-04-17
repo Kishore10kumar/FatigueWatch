@@ -157,23 +157,34 @@ export class FaceDetectionEngine {
 
       this.camera = new Camera(videoElement, {
         onFrame: async () => {
-          if (this.faceMesh && this.isInitialized) {
+          if (
+            this.faceMesh &&
+            this.isInitialized &&
+            videoElement.readyState >= 2 &&
+            videoElement.videoWidth > 0 &&
+            videoElement.videoHeight > 0 &&
+            !videoElement.paused &&
+            !videoElement.ended
+          ) {
             try {
               await this.faceMesh.send({ image: videoElement });
-            } catch (frameError) {
-              console.warn('Frame processing error:', frameError);
+            } catch (frameError: any) {
+              // Silently skip WebGL context failures — they are transient
+              if (!String(frameError).includes('WebGL')) {
+                console.warn('Frame processing error:', frameError);
+              }
             }
           }
         },
-        width: 1280,
-        height: 720
+        width: 640,
+        height: 480
       });
 
       await this.camera.start();
       
-      // Step 5: Add delay to ensure everything is properly initialized
+      // Step 5: Wait for WebGL context to fully settle before accepting frames
       console.log('Finalizing initialization...');
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
       this.isInitialized = true;
       console.log('Face detection initialized successfully');
