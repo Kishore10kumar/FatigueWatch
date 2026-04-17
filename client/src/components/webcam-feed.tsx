@@ -39,6 +39,8 @@ export default function WebcamFeed() {
   });
   const [aiInitialized, setAiInitialized] = useState(false);
   const lastAlertTimeRef = useRef(0);
+  const alertBeepCountRef = useRef(0);
+  const prevAlertLevelRef = useRef<string>('safe');
 
   // Get current driver info
   const { data: currentDriver } = useQuery<CurrentDriverResponse>({
@@ -142,32 +144,29 @@ export default function WebcamFeed() {
       }
     }
 
-    // Handle audio alerts - more responsive as requested
+    // Audio alerts: play up to 3 beeps (1 second apart), then silence until alert resets
     const now = Date.now();
-    
-    if (results.alertLevel === 'critical') {
-      // Critical alerts: immediate sound every 2 seconds
-      if (now - lastAlertTimeRef.current > 2000) {
-        playAlertSound('critical');
-        lastAlertTimeRef.current = now;
+    const currentLevel = results.alertLevel !== 'safe' ? results.alertLevel
+      : results.yawnDetected ? 'warning'
+      : 'safe';
+
+    // Reset beep counter when returning to safe
+    if (currentLevel === 'safe') {
+      alertBeepCountRef.current = 0;
+      prevAlertLevelRef.current = 'safe';
+    } else {
+      // New alert session — reset counter
+      if (prevAlertLevelRef.current === 'safe') {
+        alertBeepCountRef.current = 0;
       }
-    } else if (results.alertLevel === 'warning') {
-      // Warning alerts: sound every 4 seconds  
-      if (now - lastAlertTimeRef.current > 4000) {
-        playAlertSound('warning');
+      prevAlertLevelRef.current = currentLevel;
+
+      // Play beep if under 3 and at least 1 second since last beep
+      if (alertBeepCountRef.current < 3 && now - lastAlertTimeRef.current >= 1000) {
+        const soundType = currentLevel === 'critical' ? 'critical' : 'warning';
+        playAlertSound(soundType);
         lastAlertTimeRef.current = now;
-      }
-    } else if (results.yawnDetected) {
-      // Yawn detected: immediate notification sound
-      if (now - lastAlertTimeRef.current > 3000) {
-        playAlertSound('notification');
-        lastAlertTimeRef.current = now;
-      }
-    } else if (results.eyeState === 'closed') {
-      // Eyes closed: immediate warning sound
-      if (now - lastAlertTimeRef.current > 1500) {
-        playAlertSound('warning');
-        lastAlertTimeRef.current = now;
+        alertBeepCountRef.current += 1;
       }
     }
   };
@@ -243,7 +242,7 @@ export default function WebcamFeed() {
               <canvas
                 ref={canvasRef}
                 className="absolute inset-0 w-full h-full pointer-events-none"
-                style={{ opacity: 0.8 }}
+                style={{ opacity: 0 }}
               />
               {!aiInitialized && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/50">
@@ -257,49 +256,49 @@ export default function WebcamFeed() {
           )}
           
           <div className="absolute inset-0 video-overlay">
-            {/* Detection Status Overlay */}
-            <div className="absolute top-4 left-4">
-              <div className="bg-black/70 backdrop-blur-sm rounded-lg p-3 text-sm" data-testid="detection-status">
-                <div className="text-safe font-medium mb-1">
+            {/* Detection Status Overlay — top left */}
+            <div className="absolute top-2 left-2 sm:top-4 sm:left-4">
+              <div className="bg-black/70 backdrop-blur-sm rounded-lg px-2 py-1.5 sm:p-3" data-testid="detection-status">
+                <div className="text-safe font-medium text-xs sm:text-sm leading-tight">
                   {detectionOverlay.faceDetected ? '✓ Face Detected' : '✗ No Face'}
                 </div>
-                <div className="text-muted-foreground">
-                  Eyes: {detectionOverlay.eyeState} | Head: {detectionOverlay.headPosition}
-                </div>
-              </div>
-            </div>
-            
-            {/* Alert Status */}
-            <div className="absolute top-4 right-4">
-              <div className={`border rounded-lg px-3 py-2 ${getStatusColor(detectionOverlay.alertLevel)} ${getStatusPulse(detectionOverlay.alertLevel)}`} data-testid="alert-status">
-                <div className="flex items-center space-x-2">
-                  <div className={`w-3 h-3 rounded-full ${detectionOverlay.alertLevel === 'safe' ? 'bg-safe' : detectionOverlay.alertLevel === 'warning' ? 'bg-warning' : 'bg-critical'}`} />
-                  <span className="font-medium">{detectionOverlay.alertLevel.toUpperCase()}</span>
+                <div className="text-muted-foreground text-xs mt-0.5 hidden sm:block">
+                  Eyes: {detectionOverlay.eyeState} · Head: {detectionOverlay.headPosition}
                 </div>
               </div>
             </div>
 
-            {/* Detection Landmarks */}
-            <div className="absolute bottom-4 left-4 right-4">
-              <div className="bg-black/70 backdrop-blur-sm rounded-lg p-3" data-testid="detection-landmarks">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+            {/* Alert badge — top right */}
+            <div className="absolute top-2 right-2 sm:top-4 sm:right-4">
+              <div className={`border rounded-lg px-2 py-1 sm:px-3 sm:py-2 ${getStatusColor(detectionOverlay.alertLevel)} ${getStatusPulse(detectionOverlay.alertLevel)}`} data-testid="alert-status">
+                <div className="flex items-center space-x-1.5">
+                  <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full flex-shrink-0 ${detectionOverlay.alertLevel === 'safe' ? 'bg-safe' : detectionOverlay.alertLevel === 'warning' ? 'bg-warning' : 'bg-critical'}`} />
+                  <span className="font-medium text-xs sm:text-sm">{detectionOverlay.alertLevel.toUpperCase()}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom stats bar */}
+            <div className="absolute bottom-2 left-2 right-2 sm:bottom-4 sm:left-4 sm:right-4">
+              <div className="bg-black/70 backdrop-blur-sm rounded-lg px-2 py-2 sm:p-3" data-testid="detection-landmarks">
+                <div className="grid grid-cols-4 gap-1 sm:gap-4 text-xs">
                   <div className="text-center">
-                    <div className={`text-lg mb-1 ${detectionOverlay.eyeState === 'Closed' ? 'text-critical' : detectionOverlay.eyeState === 'Drowsy' ? 'text-warning' : 'text-safe'}`}>👁️</div>
-                    <div className="text-foreground">{detectionOverlay.eyeState}</div>
+                    <div className={`text-base sm:text-lg mb-0.5 ${detectionOverlay.eyeState === 'Closed' ? 'text-critical' : detectionOverlay.eyeState === 'Drowsy' ? 'text-warning' : 'text-safe'}`}>👁️</div>
+                    <div className="text-white leading-tight">{detectionOverlay.eyeState}</div>
                   </div>
                   <div className="text-center">
-                    <div className={`text-lg mb-1 ${detectionOverlay.yawnDetected ? 'text-warning' : 'text-safe'}`}>
+                    <div className={`text-base sm:text-lg mb-0.5 ${detectionOverlay.yawnDetected ? 'text-warning' : 'text-safe'}`}>
                       {detectionOverlay.yawnDetected ? '🥱' : '😐'}
                     </div>
-                    <div className="text-foreground">{detectionOverlay.yawnDetected ? 'Yawning' : 'No Yawn'}</div>
+                    <div className="text-white leading-tight">{detectionOverlay.yawnDetected ? 'Yawn' : 'Normal'}</div>
                   </div>
                   <div className="text-center">
-                    <div className={`text-lg mb-1 ${detectionOverlay.headPosition === 'Center' ? 'text-safe' : 'text-warning'}`}>📐</div>
-                    <div className="text-foreground">Head: {detectionOverlay.headPosition}</div>
+                    <div className={`text-base sm:text-lg mb-0.5 ${detectionOverlay.headPosition === 'Center' ? 'text-safe' : 'text-warning'}`}>📐</div>
+                    <div className="text-white leading-tight">{detectionOverlay.headPosition}</div>
                   </div>
                   <div className="text-center">
-                    <div className={`text-lg mb-1 ${detectionOverlay.alertLevel === 'safe' ? 'text-safe' : detectionOverlay.alertLevel === 'warning' ? 'text-warning' : 'text-critical'}`}>💤</div>
-                    <div className="text-foreground">{detectionOverlay.drowsinessScore}%</div>
+                    <div className={`text-base sm:text-lg mb-0.5 ${detectionOverlay.alertLevel === 'safe' ? 'text-safe' : detectionOverlay.alertLevel === 'warning' ? 'text-warning' : 'text-critical'}`}>💤</div>
+                    <div className="text-white leading-tight">{detectionOverlay.drowsinessScore}%</div>
                   </div>
                 </div>
               </div>
